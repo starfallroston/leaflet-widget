@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Custom Image Map (Leaflet + CRS.Simple)</title>
+  <!-- Leaflet CSS -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+  />
+  <style>
+    html, body { height: 100%; margin: 0; }
+    #map { height: 100vh; width: 100%; }
+    .leaflet-container { background: #111; }
+    /* Optional: Notion embeds tend to be short; ensure a minimum height */
+    .embed-wrapper { height: 720px; }
+  </style>
+</head>
+<body>
+  <div id="map" class="embed-wrapper"></div>
+
+  <!-- Leaflet JS -->
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""
+  ></script>
+
+  <script>
+    // === STEP 1: Configure your image ===
+    // Replace with your own image path placed in /assets
+    const imageUrl = './assets/world.png';
+
+    // Replace with your image's pixel dimensions
+    // (width, height) — use exact values to avoid distortion
+    const imgWidth = 4096;  // TODO: set real width in px
+    const imgHeight = 3072; // TODO: set real height in px
+
+    // Leaflet CRS.Simple uses a simple pixel-like coordinate space.
+    // We'll set map bounds so that (0,0) is top-left and (imgHeight, imgWidth) is bottom-right.
+    const bounds = [[0, 0], [imgHeight, imgWidth]];
+
+    // === STEP 2: Initialize the map ===
+    const map = L.map('map', {
+      crs: L.CRS.Simple,
+      minZoom: -2,       // allow zooming out for large images
+      maxZoom: 4,
+      zoomSnap: 0.25,    // smoother zoom steps
+      wheelPxPerZoomLevel: 96,
+      attributionControl: false
+    });
+
+    // Add the image overlay and fit the map to its bounds
+    const overlay = L.imageOverlay(imageUrl, bounds, {
+      opacity: 1,
+      interactive: true // allows popups on the image if you need them
+    }).addTo(map);
+
+    // Ensure the map view matches the image exactly
+    map.fitBounds(bounds);
+
+    // Optional: Add a simple scale-like grid for debugging coordinates
+    // function addDebugGrid(step=512) {
+    //   for (let y = 0; y <= imgHeight; y += step) {
+    //     L.polyline([[y,0],[y,imgWidth]], {weight:1, opacity:0.2}).addTo(map);
+    //   }
+    //   for (let x = 0; x <= imgWidth; x += step) {
+    //     L.polyline([[0,x],[imgHeight,x]], {weight:1, opacity:0.2}).addTo(map);
+    //   }
+    // }
+    // addDebugGrid();
+
+    // === STEP 3: Load optional POIs (JSON) and add markers ===
+    // Example schema: [{ id: 'a1', name: 'Harbor', x: 1200, y: 900, desc: 'Docking area' }]
+    fetch('./data/pois.json')
+      .then(r => r.ok ? r.json() : [])
+      .then(points => {
+        points.forEach(p => {
+          // In CRS.Simple with the bounds we used, Y is latitude, X is longitude.
+          const latLng = [p.y, p.x];
+          L.marker(latLng).addTo(map)
+            .bindPopup(`<strong>${p.name}</strong><br>${p.desc ?? ''}`);
+        });
+      })
+      .catch(() => {/* no data file present, ignore */});
+
+    // Resize fix: if rendering inside a Notion embed, ensure a small delay then invalidate size
+    setTimeout(() => map.invalidateSize(), 200);
+  </script>
+</body>
+</html>
